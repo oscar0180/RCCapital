@@ -981,43 +981,30 @@ body.is-printing .scroll-wrap  { max-height: none !important; overflow: visible 
   $('btnGenerate').addEventListener('click', generate);
   $('btnSample').addEventListener('click',()=>{
     const csv=`Id,Reason,InvestmentId,InvestorName,ManagerId,ManagerName,ManagerConfiguration,Currency,Amount,AmountProfit,RolloverId,RequestId,PlatformPositionId,PlatformOperationId,Time
-1,Deposit,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,518.04,0,9034528,42598,,20665875,2025-10-02T17:52:40
-2,DepositFee,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-10.36,0,9034528,42598,,,2025-10-02T17:52:40
-3,ManagementFee,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-0.17,0,9041780,,,,2025-10-03T00:43:29
-4,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-8.95,-8.95,,,154873101,,2025-10-15T15:45:30
-5,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,21.80,21.80,,,154873102,,2025-10-16T15:47:19
-6,ManagementFee,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-0.14,0,,,,,2025-10-17T00:48:25
-7,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,18.99,18.99,,,156936345,,2025-10-17T00:48:25
-8,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-10.15,-10.15,,,159268591,,2025-10-17T20:47:29
-9,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,0.30,0.30,,,160728487,,2025-10-20T10:51:34
-10,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-24.45,-24.45,,,160728488,,2025-10-20T18:50:45
-11,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,15.00,15.00,,,162457201,,2025-10-21T12:51:19
-12,ManagementFee,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-0.13,0,,,,,2025-10-22T00:50:06
-13,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-40.00,-40.00,,,164255674,,2025-10-22T14:50:21
-14,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,8.70,8.70,,,164817415,,2025-10-23T09:58:56
-15,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,12.50,12.50,,,165000001,,2025-11-01T10:00:00
-16,ManagementFee,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-0.12,0,,,,,2025-11-01T00:00:01
-17,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-5.00,-5.00,,,165000002,,2025-11-05T10:00:00
-18,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,22.00,22.00,,,165000003,,2025-11-10T10:00:00
-19,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-3.50,-3.50,,,165000004,,2025-11-15T10:00:00
-20,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,8.00,8.00,,,165000005,,2025-11-20T10:00:00
-21,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,30.00,30.00,,,165000006,,2025-12-03T10:00:00
-22,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-15.00,-15.00,,,165000007,,2025-12-10T10:00:00
-23,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,20.00,20.00,,,165000008,,2025-12-18T10:00:00
-24,ManagementFee,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-0.10,0,,,,,2025-12-18T00:00:01
-25,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,5.00,5.00,,,165000009,,2026-01-05T10:00:00
-26,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-8.00,-8.00,,,165000010,,2026-01-12T10:00:00
-27,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,18.00,18.00,,,165000011,,2026-01-20T10:00:00
-28,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,9.00,9.00,,,165000012,,2026-02-03T10:00:00
-29,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-4.00,-4.00,,,165000013,,2026-02-10T10:00:00
-30,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,14.00,14.00,,,165000014,,2026-02-20T10:00:00
-31,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,3.80,3.80,,,165000015,,2026-03-05T10:00:00
-32,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-2.50,-2.50,,,165000016,,2026-03-12T10:00:00
-33,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,11.00,11.00,,,165000017,,2026-04-02T10:00:00
-34,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,6.50,6.50,,,165000018,,2026-04-15T10:00:00
-35,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,-1.20,-1.20,,,165000019,,2026-05-02T10:00:00
-36,TradeResults,16724,MARIANGELA ROJAS CORRO,1128,RC Capital,1,USD,9.15,9.15,,,165000020,,2026-05-04T10:00:00`;
-    try{ allRows=parseCSV(csv); hydrateSelect(); $('displayName').value='Mariangela Rojas Corro'; generate(); }
+1,Deposit,10001,JOHN DOE,1,Demo Fund,1,USD,1000.00,0,,,,,2025-01-05T10:00:00
+2,DepositFee,10001,JOHN DOE,1,Demo Fund,1,USD,-20.00,0,,,,,2025-01-05T10:00:00
+3,ManagementFee,10001,JOHN DOE,1,Demo Fund,1,USD,-0.30,0,,,,,2025-01-06T00:00:01
+4,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,45.00,45.00,,,,,2025-01-10T10:00:00
+5,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,-18.00,-18.00,,,,,2025-01-15T10:00:00
+6,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,32.00,32.00,,,,,2025-01-20T10:00:00
+7,ManagementFee,10001,JOHN DOE,1,Demo Fund,1,USD,-0.28,0,,,,,2025-02-01T00:00:01
+8,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,-12.00,-12.00,,,,,2025-02-05T10:00:00
+9,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,55.00,55.00,,,,,2025-02-12T10:00:00
+10,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,28.00,28.00,,,,,2025-02-20T10:00:00
+11,PerformanceFee,10001,JOHN DOE,1,Demo Fund,1,USD,-10.00,0,,,,,2025-02-28T23:59:00
+12,ManagementFee,10001,JOHN DOE,1,Demo Fund,1,USD,-0.25,0,,,,,2025-03-01T00:00:01
+13,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,-25.00,-25.00,,,,,2025-03-08T10:00:00
+14,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,40.00,40.00,,,,,2025-03-15T10:00:00
+15,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,18.00,18.00,,,,,2025-03-22T10:00:00
+16,ManagementFee,10001,JOHN DOE,1,Demo Fund,1,USD,-0.22,0,,,,,2025-04-01T00:00:01
+17,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,60.00,60.00,,,,,2025-04-10T10:00:00
+18,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,-8.00,-8.00,,,,,2025-04-18T10:00:00
+19,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,22.00,22.00,,,,,2025-04-25T10:00:00
+20,ManagementFee,10001,JOHN DOE,1,Demo Fund,1,USD,-0.20,0,,,,,2025-05-01T00:00:01
+21,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,35.00,35.00,,,,,2025-05-08T10:00:00
+22,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,-5.00,-5.00,,,,,2025-05-15T10:00:00
+23,TradeResults,10001,JOHN DOE,1,Demo Fund,1,USD,48.00,48.00,,,,,2025-05-22T10:00:00`;
+    try{ allRows=parseCSV(csv); hydrateSelect(); $('displayName').value='John Doe (Demo)'; generate(); }
     catch(err){ showErr(err.message); }
   });
 
@@ -1055,15 +1042,49 @@ body.is-printing .scroll-wrap  { max-height: none !important; overflow: visible 
       scrollWrap.style.maxHeight = 'none';
       scrollWrap.style.overflow  = 'visible';
 
-      // Wait for DOM to repaint
+      // Inject print-friendly light theme so html2canvas captures correctly
+      const printStyle = document.createElement('style');
+      printStyle.id = '__pdf_override';
+      printStyle.textContent = `
+        #reportWrap, #reportWrap * { color: #111 !important; border-color: #dde !important; }
+        #reportWrap { background: #fff !important; }
+        .roi-hero { background: #f0f4ff !important; box-shadow: none !important; }
+        .kpi-box  { background: #f5f7fb !important; }
+        .chart-box { background: #f5f7fb !important; }
+        .cst { background: #eef1f7 !important; }
+        .scroll-wrap { background: #f5f7fb !important; }
+        .hero-value.pos { color: #16a34a !important; }
+        .hero-value.neg { color: #dc2626 !important; }
+        .kb-value.pos, .cst-value.pos { color: #16a34a !important; }
+        .kb-value.neg, .cst-value.neg { color: #dc2626 !important; }
+        .kb-value.blue { color: #2563eb !important; }
+        .rh-eyebrow { color: #2563eb !important; }
+        .divider { background: #dde !important; }
+        .report-footer { border-color: #dde !important; }
+        .section-title { border-color: #dde !important; }
+        .report-header { border-color: #dde !important; }
+        table th { background: #eef1f7 !important; color: #555 !important; }
+        table td, table th { border-color: #dde !important; }
+        .rh-logo { background: #e8edf5 !important; border-color: #dde !important; }
+      `;
+      document.head.appendChild(printStyle);
+
+      // Redraw charts with light colors
+      const origGood = getComputedStyle(document.documentElement).getPropertyValue('--good');
+      const origBad  = getComputedStyle(document.documentElement).getPropertyValue('--bad');
+      document.documentElement.style.setProperty('--good', '#16a34a');
+      document.documentElement.style.setProperty('--bad',  '#dc2626');
+      document.documentElement.style.setProperty('--muted', '#666');
+      drawEquityChart(); if(CC.stats) drawMonthlyChart(CC.stats);
+
       await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r)));
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 180));
 
       const canvas = await html2canvas(target, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#0b0f14',
+        backgroundColor: '#ffffff',
         logging: false,
         width: target.offsetWidth,
         height: target.scrollHeight,
@@ -1071,7 +1092,14 @@ body.is-printing .scroll-wrap  { max-height: none !important; overflow: visible 
         scrollY: -window.scrollY,
       });
 
-      // Restore
+      // Restore theme
+      document.head.removeChild(printStyle);
+      document.documentElement.style.setProperty('--good', '#4ade80');
+      document.documentElement.style.setProperty('--bad',  '#f87171');
+      document.documentElement.style.setProperty('--muted', '#9fb0c3');
+      drawEquityChart(); if(CC.stats) drawMonthlyChart(CC.stats);
+
+      // Restore hidden elements
       if(footerBtn) footerBtn.style.visibility = '';
       rangeCtrls.forEach(el => el.style.visibility = '');
       scrollWrap.style.maxHeight = '';
