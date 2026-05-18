@@ -216,18 +216,25 @@ const fmtNum=n=>(isFinite(n)?n:0).toLocaleString('en-US');
 $('clientEmail').addEventListener('keydown',e=>e.key==='Enter'&&login());
 $('clientPass').addEventListener('keydown',e=>e.key==='Enter'&&login());
 
-async function login(){
-  const email=$('clientEmail').value.trim().toLowerCase();
-  const pass=$('clientPass').value;
-  const btn=$('loginBtn');
+function login(){
+  var email=($('clientEmail').value||'').trim().toLowerCase();
+  var pass=($('clientPass').value||'');
+  var btn=$('loginBtn');
   if(!email||!pass){showErr('Completa todos los campos.');return;}
   btn.textContent='Verificando...';btn.disabled=true;
   $('loginErr').style.display='none';
-  const{data,error}=await db.from('clientes').select('*').eq('email',email).eq('password_hash',pass).single();
-  if(error||!data){btn.textContent='Acceder a mi reporte →';btn.disabled=false;showErr('Email o contraseña incorrectos.');return;}
-  currentCliente=data;
-  sessionStorage.setItem('rc_client',JSON.stringify(data));
-  showApp();
+  db.from('clientes').select('*').eq('email',email).eq('password_hash',pass).single().then(function(res){
+    if(res.error||!res.data){
+      btn.textContent='Acceder a mi reporte →';btn.disabled=false;
+      showErr('Email o contraseña incorrectos.');return;
+    }
+    currentCliente=res.data;
+    try{sessionStorage.setItem('rc_client',JSON.stringify(res.data));}catch(e){}
+    showApp();
+  }).catch(function(e){
+    btn.textContent='Acceder a mi reporte →';btn.disabled=false;
+    showErr('Error de conexión. Inténtalo de nuevo.');
+  });
 }
 function showErr(m){$('loginErr').textContent=m;$('loginErr').style.display='block';}
 function logout(){sessionStorage.removeItem('rc_client');currentCliente=null;$('appScreen').style.display='none';$('loginScreen').style.display='flex';$('clientPass').value='';}
@@ -429,7 +436,7 @@ async function generarPDF(){
     pdf.setFillColor(16,24,38);pdf.rect(colL,y,colLW,6,'F');
     ['MES','P&L MES','RET %','EQUITY'].forEach(function(h,i){pdf.setFont('helvetica','bold');pdf.setFontSize(5);pdf.setTextColor(107,128,154);pdf.text(h,i===0?tX[i]+2:tX[i]+tC[i]-2,y+4,{align:i===0?'left':'right'});});y+=6;
     const tableRows=$('summaryBody').querySelectorAll('tr');const rH=5;
-    tableRows.forEach(function(row,ri){if(y+rH>H-20)return;var cells=row.querySelectorAll('td');if(cells.length<4)return;if(ri%2===0){pdf.setFillColor(8,12,20);pdf.rect(colL,y,colLW,rH,'F');}cells.forEach(function(cell,i){const txt=cell.textContent.trim();pdf.setFont('helvetica','normal');pdf.setFontSize(5.5);if(i===0)pdf.setTextColor(226,234,245);else if(txt.startsWith('-'))pdf.setTextColor(255,79,106);else if(txt.startsWith('+'))pdf.setTextColor(34,214,138);else pdf.setTextColor(226,234,245);pdf.text(txt,i===0?tX[i]+2:tX[i]+tC[i]-2,y+3.8,{align:i===0?'left':'right'});});pdf.setDrawColor(20,30,45);pdf.setLineWidth(0.15);pdf.line(colL,y+rH,colL+colLW,y+rH);y+=rH;});});
+    tableRows.forEach(function(row,ri){if(y+rH>H-20)return;var cells=row.querySelectorAll('td');if(cells.length<4)return;if(ri%2===0){pdf.setFillColor(8,12,20);pdf.rect(colL,y,colLW,rH,'F');}cells.forEach(function(cell,i){const txt=cell.textContent.trim();pdf.setFont('helvetica','normal');pdf.setFontSize(5.5);if(i===0)pdf.setTextColor(226,234,245);else if(txt.startsWith('-'))pdf.setTextColor(255,79,106);else if(txt.startsWith('+'))pdf.setTextColor(34,214,138);else pdf.setTextColor(226,234,245);pdf.text(txt,i===0?tX[i]+2:tX[i]+tC[i]-2,y+3.8,{align:i===0?'left':'right'});});pdf.setDrawColor(20,30,45);pdf.setLineWidth(0.15);pdf.line(colL,y+rH,colL+colLW,y+rH);y+=rH;});
     let ry=M+28;
     pdf.setFont('helvetica','bold');pdf.setFontSize(7);pdf.setTextColor(226,234,245);pdf.text('Evolución del Capital',colR,ry+5);ry+=9;
     var eqC=$('chartEquity');if(eqC&&eqC.width>0){try{var eqImgData=eqC.toDataURL('image/jpeg',0.85);var eqH=74;pdf.setFillColor(10,14,20);pdf.rect(colR,ry,colRW,eqH,'F');pdf.addImage(eqImgData,'JPEG',colR+1,ry+1,colRW-2,eqH-2);ry+=eqH+4;}catch(e){console.log('eq chart err',e);ry+=4;}}
