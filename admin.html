@@ -564,6 +564,8 @@ function renderClientesTable(){
           '<span id="' + passId + '" data-visible="0" style="font-family:var(--mono);font-size:12px;color:var(--warn);letter-spacing:2px;">••••••••</span>' +
           '<button id="' + eyeId + '" onclick="togglePass(\'' + passId + '\',\'' + eyeId + '\',\'' + passEscaped + '\')" ' +
             'style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;font-size:13px;line-height:1;" title="Mostrar/ocultar">👁</button>' +
+          '<button onclick="copyPass(\'' + passEscaped + '\')" ' +
+            'style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;font-size:13px;line-height:1;transition:color .15s;" title="Copiar contraseña">📋</button>' +
         '</div>' +
       '</div>' +
       // COL 3: Delete
@@ -597,6 +599,19 @@ function togglePass(passId, eyeId, password){
     el.textContent=password||'—'; el.dataset.visible='1';
     el.style.letterSpacing='normal'; btn.style.color='var(--accent)';
   }
+}
+
+function copyPass(password){
+  navigator.clipboard.writeText(password).then(()=>{
+    toast('📋 Contraseña copiada');
+  }).catch(()=>{
+    // Fallback for older browsers
+    const ta=document.createElement('textarea');
+    ta.value=password; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    toast('📋 Contraseña copiada');
+  });
 }
 
 // ── CSV HELPERS (admin) ──────────────────────────────────────────
@@ -677,7 +692,7 @@ async function loadClientSparkline(c, safeId){
       // Format upload date
       const pad = x => String(x).padStart(2,'0');
       const d = data.created_at ? new Date(data.created_at) : null;
-      const uploadStr = d ? pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes()) : data.mes;
+      const uploadStr = d ? pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear() : data.mes;
 
       let icon, color, label;
 
