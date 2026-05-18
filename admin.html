@@ -541,7 +541,12 @@ function renderClientesTable(){
         '<canvas id="spark-' + safeId + '" width="160" height="56" style="flex-shrink:0;border-radius:8px;display:block;"></canvas>' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-weight:700;font-size:14px;margin-bottom:2px;">' + c.nombre + '</div>' +
-          '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">' + c.email + '</div>' +
+          '<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">' +
+          '<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">' + c.email + '</span>' +
+          '<button onclick="copyText(\'' + c.email + '\')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:1px;line-height:1;display:flex;align-items:center;transition:color .15s;" title="Copiar email" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--muted)\'">' +
+            '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+          '</button>' +
+        '</div>' +
           '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">' +
             '<span id="roi-' + safeId + '" style="font-size:13px;font-weight:700;font-family:var(--mono);">—</span>' +
             '<span id="eq-' + safeId + '" style="font-size:11px;color:var(--muted);font-family:var(--mono);">—</span>' +
@@ -564,8 +569,9 @@ function renderClientesTable(){
           '<span id="' + passId + '" data-visible="0" style="font-family:var(--mono);font-size:12px;color:var(--warn);letter-spacing:2px;">••••••••</span>' +
           '<button id="' + eyeId + '" onclick="togglePass(\'' + passId + '\',\'' + eyeId + '\',\'' + passEscaped + '\')" ' +
             'style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;font-size:13px;line-height:1;" title="Mostrar/ocultar">👁</button>' +
-          '<button onclick="copyPass(\'' + passEscaped + '\')" ' +
-            'style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;font-size:13px;line-height:1;transition:color .15s;" title="Copiar contraseña">📋</button>' +
+          '<button onclick="copyPass(\'' + passEscaped + '\')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;line-height:1;display:flex;align-items:center;transition:color .15s;" title="Copiar contraseña" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--muted)\'">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+          '</button>' +
         '</div>' +
       '</div>' +
       // COL 3: Delete
@@ -601,17 +607,19 @@ function togglePass(passId, eyeId, password){
   }
 }
 
-function copyPass(password){
-  navigator.clipboard.writeText(password).then(()=>{
-    toast('📋 Contraseña copiada');
-  }).catch(()=>{
-    // Fallback for older browsers
-    const ta=document.createElement('textarea');
-    ta.value=password; ta.style.position='fixed'; ta.style.opacity='0';
-    document.body.appendChild(ta); ta.select();
-    document.execCommand('copy'); document.body.removeChild(ta);
-    toast('📋 Contraseña copiada');
-  });
+function copyPass(text){ copyText(text,'✓ Contraseña copiada'); }
+function copyText(text,msg){
+  msg=msg||'✓ Copiado';
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){toast(msg);}).catch(function(){fbCopy(text,msg);});
+  } else { fbCopy(text,msg); }
+}
+function fbCopy(text,msg){
+  var ta=document.createElement('textarea');
+  ta.value=text;ta.style.cssText='position:fixed;opacity:0;top:0;left:0;';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');toast(msg);}catch(e){}
+  document.body.removeChild(ta);
 }
 
 // ── CSV HELPERS (admin) ──────────────────────────────────────────
