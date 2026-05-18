@@ -45,19 +45,41 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 
 /* SIDEBAR */
 .layout{display:flex;min-height:100vh;}
-.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);
-  padding:24px 16px;display:flex;flex-direction:column;flex-shrink:0;}
-.sidebar-logo{display:flex;align-items:center;gap:8px;margin-bottom:32px;padding:0 4px;}
-.sidebar-logo h2{font-size:16px;font-weight:800;}
+
+/* SIDEBAR */
+.sidebar{
+  width:220px;background:var(--surface);border-right:1px solid var(--border);
+  padding:20px 14px;display:flex;flex-direction:column;flex-shrink:0;
+  transition:width .25s ease, padding .25s ease;overflow:hidden;position:relative;
+}
+.sidebar.collapsed{width:56px;padding:20px 8px;}
+.sidebar.collapsed .sidebar-logo h2,
+.sidebar.collapsed .sidebar-logo .tag,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .logout-btn span,
+.sidebar.collapsed .sidebar-bottom{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;padding:10px 6px;}
+.sidebar.collapsed .nav-item .icon{width:auto;}
+.sidebar-logo{display:flex;align-items:center;gap:8px;margin-bottom:28px;padding:0 4px;min-width:0;}
+.sidebar-logo h2{font-size:15px;font-weight:800;white-space:nowrap;}
 .sidebar-logo .tag{font-size:9px;color:var(--accent);font-family:var(--mono);
   background:rgba(0,194,255,.1);border:1px solid rgba(0,194,255,.2);
-  border-radius:4px;padding:2px 5px;}
+  border-radius:4px;padding:2px 5px;white-space:nowrap;}
+.sidebar-toggle{position:absolute;top:18px;right:-14px;z-index:10;
+  width:28px;height:28px;border-radius:50%;
+  background:var(--surface);border:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:12px;color:var(--muted);transition:all .2s;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.sidebar-toggle:hover{color:var(--accent);border-color:rgba(0,194,255,.3);}
 .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
   font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;
-  transition:all .15s;border:none;background:transparent;width:100%;text-align:left;margin-bottom:2px;}
+  transition:all .15s;border:none;background:transparent;width:100%;text-align:left;margin-bottom:2px;
+  white-space:nowrap;overflow:hidden;}
 .nav-item:hover{background:rgba(255,255,255,.05);color:var(--text);}
 .nav-item.active{background:rgba(0,194,255,.1);color:var(--accent);}
-.nav-item .icon{font-size:16px;width:20px;text-align:center;}
+.nav-item .icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;}
+.nav-label{overflow:hidden;text-overflow:ellipsis;}
 .sidebar-bottom{margin-top:auto;}
 .logout-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;
   font-size:12px;color:var(--bad);cursor:pointer;background:rgba(255,79,106,.08);
@@ -65,8 +87,41 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   transition:all .15s;}
 .logout-btn:hover{background:rgba(255,79,106,.15);}
 
+/* MOBILE */
+@media(max-width:768px){
+  .layout{flex-direction:column;}
+  .sidebar{
+    width:100% !important;flex-direction:row;align-items:center;
+    padding:10px 14px !important;border-right:none;
+    border-bottom:1px solid var(--border);flex-shrink:0;
+    overflow-x:auto;gap:4px;
+  }
+  .sidebar.collapsed{width:100% !important;}
+  .sidebar-logo{margin-bottom:0;margin-right:8px;}
+  .sidebar-logo h2{font-size:13px;}
+  .sidebar-logo .tag{display:none;}
+  .sidebar-toggle{position:static;margin-left:auto;flex-shrink:0;}
+  .sidebar.collapsed .sidebar-logo h2{display:block;}
+  .sidebar.collapsed .nav-label{display:block;}
+  .sidebar.collapsed .nav-item{justify-content:flex-start;padding:8px 10px;}
+  .sidebar-bottom{display:none;}
+  .nav-item{padding:8px 10px;font-size:12px;margin-bottom:0;flex-shrink:0;border-radius:8px;}
+  .nav-item .icon{font-size:14px;}
+  .sidebar-nav-group{display:flex;gap:4px;flex:1;overflow-x:auto;}
+}
+
 /* CONTENT */
-.content{flex:1;padding:32px;overflow-y:auto;}
+.content{flex:1;padding:24px;overflow-y:auto;}
+@media(max-width:768px){
+  .content{padding:14px;}
+  .page-title{font-size:18px;}
+  .page-sub{font-size:12px;margin-bottom:16px;}
+  .stats-row{grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+  .stat-box{padding:12px;}
+  .stat-box .sv{font-size:20px;}
+  .card-bd{padding:14px;}
+  .form-grid{grid-template-columns:1fr;}
+}
 .page{display:none;}
 .page.active{display:block;}
 .page-title{font-size:22px;font-weight:800;margin-bottom:4px;}
@@ -202,22 +257,26 @@ td .mono{font-family:var(--mono);font-size:11px;color:var(--muted);}
 <div id="appScreen">
   <div class="layout">
     <!-- SIDEBAR -->
-    <div class="sidebar">
+    <div class="sidebar" id="adminSidebar">
+      <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Ocultar/mostrar menú">◀</button>
       <div class="sidebar-logo">
+        <img src="logo.png" style="width:24px;height:24px;object-fit:contain;border-radius:5px;flex-shrink:0;" alt="RCC"/>
         <h2>RCCapital</h2>
         <span class="tag">ADMIN</span>
       </div>
-      <button class="nav-item active" data-page="dashboard" onclick="showPage('dashboard',this)">
-        <span class="icon">📊</span> Dashboard
-      </button>
-      <button class="nav-item" data-page="clientes" onclick="showPage('clientes',this)">
-        <span class="icon">👥</span> Clientes
-      </button>
-      <button class="nav-item" data-page="reportes" onclick="showPage('reportes',this)">
-        <span class="icon">📁</span> Reportes
-      </button>
+      <div class="sidebar-nav-group">
+        <button class="nav-item active" data-page="dashboard" onclick="showPage('dashboard',this)">
+          <span class="icon">📊</span><span class="nav-label"> Dashboard</span>
+        </button>
+        <button class="nav-item" data-page="clientes" onclick="showPage('clientes',this)">
+          <span class="icon">👥</span><span class="nav-label"> Clientes</span>
+        </button>
+        <button class="nav-item" data-page="reportes" onclick="showPage('reportes',this)">
+          <span class="icon">📁</span><span class="nav-label"> Reportes</span>
+        </button>
+      </div>
       <div class="sidebar-bottom">
-        <button class="logout-btn" onclick="logout()">🚪 Cerrar sesión</button>
+        <button class="logout-btn" onclick="logout()"><span>🚪</span><span> Cerrar sesión</span></button>
       </div>
     </div>
 
@@ -1334,5 +1393,31 @@ document.addEventListener('keydown', function(e){
     e.preventDefault();
   }
 });
+
+
+// ── SIDEBAR TOGGLE ────────────────────────────────────────────────
+function toggleSidebar(){
+  var sb = $('adminSidebar');
+  var btn = $('sidebarToggle');
+  var isMobile = window.innerWidth <= 768;
+  if(isMobile){
+    // On mobile sidebar is always full width - toggle compact mode
+    sb.classList.toggle('collapsed');
+    btn.textContent = sb.classList.contains('collapsed') ? '▶' : '▲';
+  } else {
+    sb.classList.toggle('collapsed');
+    btn.textContent = sb.classList.contains('collapsed') ? '▶' : '◀';
+  }
+  localStorage.setItem('rcSidebarCollapsed', sb.classList.contains('collapsed')?'1':'0');
+}
+
+// Restore sidebar state
+(function(){
+  var saved = localStorage.getItem('rcSidebarCollapsed');
+  if(saved==='1'){
+    var sb=$('adminSidebar'), btn=$('sidebarToggle');
+    if(sb){ sb.classList.add('collapsed'); if(btn) btn.textContent='▶'; }
+  }
+})();
 
 </script>
