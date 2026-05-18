@@ -160,6 +160,19 @@ td .mono{font-family:var(--mono);font-size:11px;color:var(--muted);}
 /* UPLOAD PROGRESS */
 .progress-bar{height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin-top:8px;}
 .progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s ease;width:0%;}
+
+  /* PIN PAD */
+  #adminPinOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:24px;}
+  .pin-dot{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.2);transition:all .2s;}
+  .pin-dot.filled{background:var(--accent);border-color:var(--accent);box-shadow:0 0 12px rgba(0,194,255,.5);}
+  .pin-dot.ok{background:var(--good);border-color:var(--good);}
+  .pin-dot.err{background:var(--bad);border-color:var(--bad);}
+  .pin-btn{font-family:var(--sans);font-size:22px;font-weight:700;width:68px;height:68px;border-radius:50%;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;}
+  .pin-btn:hover{background:rgba(255,255,255,.14);}
+  .pin-btn:active{background:rgba(255,255,255,.22);transform:scale(.9);}
+  .pin-del{background:rgba(255,79,106,.08);border-color:rgba(255,79,106,.2);color:var(--bad);}
+  .pin-cancel{background:rgba(255,255,255,.03);color:var(--muted);}
+
 </style>
 </head>
 <body>
@@ -167,7 +180,7 @@ td .mono{font-family:var(--mono);font-size:11px;color:var(--muted);}
 <!-- LOGIN -->
 <div id="loginScreen">
   <div class="login-box">
-    <div class="login-logo">
+    <div class="login-logo" id="secretLogoAdmin" onclick="handleAdminTap()" style="cursor:default;user-select:none;">
       <img src="logo.png" style="width:40px;height:40px;object-fit:contain;border-radius:8px;" alt="RCCapital"/>
       <h1>RCCapital</h1>
       <span>ADMIN</span>
@@ -1094,6 +1107,33 @@ $('repMes').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,
     </div>
   </div>
 </div>
+
+<!-- ADMIN PIN ACCESS -->
+<div id="adminPinOverlay">
+  <div style="text-align:center;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:20px;">Acceso rápido</div>
+    <div id="adminPinDots" style="display:flex;gap:14px;justify-content:center;margin-bottom:28px;">
+      <div class="pin-dot"></div><div class="pin-dot"></div>
+      <div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:228px;margin:0 auto;">
+      <button class="pin-btn" onclick="adminPinTap('1')">1</button>
+      <button class="pin-btn" onclick="adminPinTap('2')">2</button>
+      <button class="pin-btn" onclick="adminPinTap('3')">3</button>
+      <button class="pin-btn" onclick="adminPinTap('4')">4</button>
+      <button class="pin-btn" onclick="adminPinTap('5')">5</button>
+      <button class="pin-btn" onclick="adminPinTap('6')">6</button>
+      <button class="pin-btn" onclick="adminPinTap('7')">7</button>
+      <button class="pin-btn" onclick="adminPinTap('8')">8</button>
+      <button class="pin-btn" onclick="adminPinTap('9')">9</button>
+      <button class="pin-btn pin-del" onclick="adminPinDel()">⌫</button>
+      <button class="pin-btn" onclick="adminPinTap('0')">0</button>
+      <button class="pin-btn pin-cancel" onclick="adminPinClose()">✕</button>
+    </div>
+    <div id="adminPinErr" style="font-size:12px;color:var(--bad);margin-top:18px;height:16px;"></div>
+  </div>
+</div>
+
 </body>
 </html>
 <script>
@@ -1219,4 +1259,80 @@ function clearBulk(){
   $('bulkList').innerHTML='';
   $('bulkStatus').textContent='';
 }
+
+// ── ADMIN PIN ACCESS ─────────────────────────────────────────────
+const ADMIN_PIN = '0180';
+let adminTapCount = 0, adminTapTimer = null, adminPinEntry = '';
+
+function handleAdminTap(){
+  adminTapCount++;
+  clearTimeout(adminTapTimer);
+  adminTapTimer = setTimeout(function(){ adminTapCount=0; }, 2000);
+  if(adminTapCount >= 5){
+    adminTapCount = 0;
+    adminPinOpen();
+  }
+}
+
+function adminPinOpen(){
+  adminPinEntry = '';
+  adminUpdateDots();
+  $('adminPinErr').textContent = '';
+  $('adminPinOverlay').style.display = 'flex';
+}
+
+function adminPinClose(){
+  $('adminPinOverlay').style.display = 'none';
+  adminPinEntry = '';
+  adminUpdateDots();
+}
+
+function adminPinTap(d){
+  if(adminPinEntry.length >= 4) return;
+  adminPinEntry += d;
+  adminUpdateDots();
+  if(adminPinEntry.length === 4) setTimeout(adminPinCheck, 180);
+}
+
+function adminPinDel(){
+  adminPinEntry = adminPinEntry.slice(0,-1);
+  adminUpdateDots();
+  $('adminPinErr').textContent = '';
+}
+
+function adminUpdateDots(){
+  var dots = document.querySelectorAll('#adminPinDots .pin-dot');
+  dots.forEach(function(d,i){
+    d.className = 'pin-dot';
+    if(i < adminPinEntry.length) d.classList.add('filled');
+  });
+}
+
+function adminPinCheck(){
+  if(adminPinEntry === ADMIN_PIN){
+    document.querySelectorAll('#adminPinDots .pin-dot').forEach(function(d){
+      d.className='pin-dot ok';
+    });
+    setTimeout(function(){ showApp(); adminPinClose(); }, 350);
+  } else {
+    document.querySelectorAll('#adminPinDots .pin-dot').forEach(function(d){
+      d.className='pin-dot err';
+    });
+    $('adminPinErr').textContent = 'PIN incorrecto';
+    setTimeout(function(){
+      adminPinEntry=''; adminUpdateDots();
+      $('adminPinErr').textContent='';
+    }, 900);
+  }
+}
+
+document.addEventListener('keydown', function(e){
+  if($('adminPinOverlay').style.display==='flex'){
+    if(e.key>='0'&&e.key<='9') adminPinTap(e.key);
+    if(e.key==='Backspace') adminPinDel();
+    if(e.key==='Escape') adminPinClose();
+    e.preventDefault();
+  }
+});
+
 </script>
