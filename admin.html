@@ -514,7 +514,7 @@ function renderClientesTable(){
           '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">' +
             '<span id="roi-' + safeId + '" style="font-size:13px;font-weight:700;font-family:var(--mono);">—</span>' +
             '<span id="eq-' + safeId + '" style="font-size:11px;color:var(--muted);font-family:var(--mono);">—</span>' +
-            '<span id="repCount-' + c.id + '" class="badge warn" style="font-size:10px;">...</span>' +
+            '<span id="lastRep-' + c.id + '" style="font-size:10px;color:var(--muted);font-family:var(--mono);">...</span>' +
           '</div>' +
           '<div style="display:flex;gap:14px;flex-wrap:wrap;">' +
             '<div><span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Inicio </span>' +
@@ -630,10 +630,16 @@ async function loadClientSparkline(c, safeId){
     .limit(1)
     .single();
 
-  // Update rep count
-  const { count } = await db.from('reportes').select('*',{count:'exact',head:true}).eq('cliente_id',c.id);
-  const repEl = $('repCount-'+c.id);
-  if(repEl) repEl.textContent = (count||0)+' rep.';
+  // Update last upload date
+  const repEl = $('lastRep-'+c.id);
+  if(repEl && data && data.created_at){
+    const d = new Date(data.created_at);
+    const pad = x => String(x).padStart(2,'0');
+    repEl.textContent = '↑ '+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+    repEl.style.color = 'var(--accent)';
+  } else if(repEl){
+    repEl.textContent = 'Sin reportes';
+  }
 
   if(!data || !data.csv_data) return;
 
