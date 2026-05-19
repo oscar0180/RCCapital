@@ -468,7 +468,7 @@ td .mono{font-family:var(--mono);font-size:11px;color:var(--muted);}
               <div id="dropZoneTitle" style="font-size:15px;font-weight:700;color:var(--accent);">Arrastra el CSV consolidado de Vantage</div>
               <div id="dropZoneSub" style="font-size:12px;color:var(--muted);margin-top:6px;">Contiene todos los clientes — se separan automáticamente</div>
             </div>
-            <input type="file" id="bulkFileInput" accept=".csv" style="display:none;" onchange="console.log('file input changed',this.files);handleBulkFiles(this.files)"/>
+            <input type="file" id="bulkFileInput" accept=".csv" style="display:none;" onchange="handleBulkFiles(this.files)"/>
             <div id="bulkPreview" style="display:none;margin-top:16px;">
               <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Archivos detectados:</div>
               <div id="bulkList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;"></div>
@@ -1248,9 +1248,10 @@ window.addEventListener('DOMContentLoaded', () => {
 const now = new Date();
 $('repMes').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 </script>
-
 <!-- MODAL EDITAR CONTRASEÑA -->
-<div class="modal-overlay" id="modalEditPass">
+<
+
+
   <div class="modal">
     <h3>🔑 Nueva clave de acceso</h3>
     <p id="editPassMsg">Se generará una nueva clave aleatoria segura.</p>
@@ -1329,6 +1330,41 @@ function handleDrop(e){
   dz.style.borderColor='rgba(0,194,255,.3)';
   dz.style.background='rgba(0,194,255,.04)';
   handleBulkFiles(e.dataTransfer.files);
+}
+
+
+// ── SPLIT CONSOLIDATED CSV ────────────────────────────────────────
+function splitConsolidatedCSV(text){
+  var sep=detectSepA(text);
+  var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
+  if(lines.length<2) return [];
+  var header=lines[0];
+  var h=smartSplitA(header,sep).map(function(x){return x.toLowerCase().replace(/\s+/g,'');});
+  var INV_COLS=['investorname','investor','inversor','user','usuario','name','cliente'];
+  var iI=-1;
+  for(var ci=0;ci<INV_COLS.length;ci++){
+    var ix=h.indexOf(INV_COLS[ci]);
+    if(ix>=0){iI=ix;break;}
+  }
+  if(iI<0) return [{investorName:'(todos)',csvText:text,rowCount:lines.length-1}];
+
+  var groups={};
+  for(var i=1;i<lines.length;i++){
+    var cols=smartSplitA(lines[i],sep);
+    if(cols.length<3) continue;
+    var name=(cols[iI]||'').trim().replace(/^"|"$/g,'');
+    if(!name) continue;
+    if(!groups[name]) groups[name]=[];
+    groups[name].push(lines[i]);
+  }
+
+  return Object.keys(groups).map(function(name){
+    return{
+      investorName:name,
+      csvText:header+'\n'+groups[name].join('\n'),
+      rowCount:groups[name].length
+    };
+  });
 }
 
 function handleBulkFiles(fileList){
@@ -1839,4 +1875,10 @@ function mcDrawChart(monthKeys, monthly){
   ctx.fillText('─ Retiros', W-118, 16);
 }
 
+
+
+
+div class="modal-overlay" id="modalEditPass">
 </script>
+</body>
+</html>
