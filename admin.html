@@ -672,6 +672,10 @@ async function loadAll(){
   await loadClientes();
   await loadReportes();
   updateDashboard();
+  // Restore Mi Cuenta from cache
+  if(lastConsolidatedCSV){
+    mcProcessCSV(lastConsolidatedCSV);
+  }
 }
 
 async function loadClientes(){
@@ -739,9 +743,15 @@ function renderClientesTable(){
     const eyeId  = 'eye-'+safeId;
     const card = document.createElement('div');
     card.id = 'card-'+safeId;
-    card.style.cssText = 'background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px 18px;display:grid;grid-template-columns:1fr auto auto;gap:20px;align-items:center;transition:border-color .2s;';
+    card.style.cssText = 'background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px 18px;display:grid;grid-template-columns:1fr auto auto;gap:20px;align-items:center;transition:border-color .2s;cursor:pointer;';
+    card.title = 'Ver detalle de '+c.nombre;
     card.onmouseenter = () => card.style.borderColor='rgba(255,255,255,.16)';
     card.onmouseleave = () => card.style.borderColor='rgba(255,255,255,.08)';
+    card.onclick = function(e){
+      // Don't trigger if clicking buttons inside the card
+      if(e.target.closest('button')||e.target.closest('select')) return;
+      openDetalle(c.id, c.nombre);
+    };
     const passEscaped = (c.password_hash||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     card.innerHTML =
       // COL 1: Sparkline LEFT + info right (original style)
@@ -1438,6 +1448,7 @@ function processAllLoaded(results, curMes){
         // Feed manager data to Mi Cuenta
         if(managerRows.length > 0){
           lastConsolidatedCSV = r.text;
+          try{ localStorage.setItem('rcMiCuentaCSV', r.text); }catch(e){}
           mcProcessCSV(r.text);
           var mcNav = document.querySelector('[data-page="micuenta"] .nav-label');
           if(mcNav) mcNav.innerHTML = ' Mi Cuenta <span style="color:var(--good);font-size:10px;">&#9679;</span>';
@@ -1695,6 +1706,7 @@ function autoFeedMiCuenta(){
 
   if(fullText){
     lastConsolidatedCSV = fullText;
+    try{ localStorage.setItem('rcMiCuentaCSV', fullText); }catch(e){}
     mcProcessCSV(fullText);
     var mcNav = document.querySelector('[data-page="micuenta"] .nav-label');
     if(mcNav) mcNav.innerHTML = ' Mi Cuenta <span style="color:var(--good);font-size:10px;">●</span>';
@@ -1719,6 +1731,7 @@ function mcLoadFile(fileList){
     try{
       var text=ev.target.result;
       lastConsolidatedCSV=text;
+      try{ localStorage.setItem('rcMiCuentaCSV', text); }catch(e){}
       mcProcessCSV(text);
       $('mcFileStatus').textContent='✅ '+file.name+' cargado correctamente';
       $('mcFileInput').value='';
@@ -1889,6 +1902,255 @@ function mcDrawChart(monthKeys, monthly){
   ctx.fillText('─ Retiros', W-118, 16);
 }
 
+
+// ── CLIENT DETAIL MODAL ───────────────────────────────────────────
+function closeDetalle(){ $('modalDetalle').style.display='none'; }
+
+async function openDetalle(clienteId, nombre){
+  $('detNombre').textContent = nombre;
+  $('detROI').textContent = '—'; $('detEquity').textContent = '—';
+  $('detTableBody').innerHTML = '';
+  $('modalDetalle').style.display = 'flex';
+
+  // Load latest report from Supabase
+  var res = await db.from('reportes').select('csv_data,mes,created_at')
+    .eq('cliente_id', clienteId).order('mes',{ascending:false}).limit(1).single();
+  if(!res.data || !res.data.csv_data){
+    $('detPeriodo').textContent = 'Sin reportes disponibles';
+    return;
+  }
+
+  var rep = res.data;
+  $('detPeriodo').textContent = 'Período: ' + rep.mes;
+
+  // Parse CSV and compute stats (reusing same logic as index.html)
+  try{
+    var rows = parseCSVdet(rep.csv_data);
+    var stats = computeStatsdet(rows);
+    renderDetalle(stats, nombre);
+  }catch(e){
+    $('detPeriodo').textContent = 'Error procesando datos: '+e.message;
+  }
+}
+
+// Lightweight CSV parser for detail modal
+function parseCSVdet(text){
+  var sep = (text.split(/\r?\n/)[0]||'').split(';').length > (text.split(/\r?\n/)[0]||'').split(',').length ? ';' : ',';
+  var lines = text.split(/\r?\n/).filter(function(l){return l.trim();});
+  if(lines.length<2) throw new Error('CSV vacío');
+  var h = smartSplitA(lines[0],sep).map(function(x){return x.toLowerCase().replace(/\s+/g,'');});
+  var col = function(){var names=Array.prototype.slice.call(arguments);for(var i=0;i<names.length;i++){var ix=h.indexOf(names[i]);if(ix>=0)return ix;}return -1;};
+  var iT=col('time','fecha','date','datetime'), iR=col('reason','tipo','type');
+  var iA=col('amount','monto','importe'), iP=col('amountprofit','profit','pnl');
+  var out=[];
+  for(var i=1;i<lines.length;i++){
+    var c=smartSplitA(lines[i],sep); if(c.length<3) continue;
+    var time=parseDateA(c[iT]); if(!time) continue;
+    out.push({time:time,reason:(c[iR]||'').toLowerCase().trim(),amount:iA>=0?parseNumA(c[iA]):0,amountProfit:iP>=0?parseNumA(c[iP]):0});
+  }
+  return out.sort(function(a,b){return a.time-b.time;});
+}
+
+function computeStatsdet(rows){
+  var pad2=function(x){return String(x).padStart(2,'0');};
+  var dayKey=function(d){return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());};
+  var mKey=function(d){return d.getFullYear()+'-'+pad2(d.getMonth()+1);};
+  var depTx=rows.find(function(r){return /^deposit$/.test(r.reason);});
+  var depGross=depTx?Math.abs(depTx.amount):0;
+  var depFeeTx=rows.find(function(r){return /^depositfee$/.test(r.reason);});
+  var depFee=depFeeTx?Math.abs(depFeeTx.amount):0;
+  var dep=depGross-depFee;
+  var runP=0,runF=0,dailyEq={},monthlyPnl={};
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    if(/^deposit$/.test(r.reason)||/^depositfee$/.test(r.reason)) continue;
+    var mk=mKey(r.time);
+    if(!monthlyPnl[mk]) monthlyPnl[mk]=0;
+    if(/traderesult/i.test(r.reason)){runP+=r.amountProfit;monthlyPnl[mk]+=r.amountProfit;}
+    if(/fee/i.test(r.reason)&&!/^depositfee$/.test(r.reason)){runF+=r.amount;monthlyPnl[mk]+=r.amount;}
+    dailyEq[dayKey(r.time)]=dep+runP+runF;
+  }
+  var equity=dep+runP+runF, roi=dep>0?((equity-dep)/dep*100):0;
+  var me=Object.entries(monthlyPnl).sort(function(a,b){return a[0].localeCompare(b[0]);});
+  var posM=me.filter(function(e){return e[1]>0;}).length;
+  var best=me.reduce(function(a,b){return b[1]>a[1]?b:a;},['',0]);
+  var fd=rows[0]?rows[0].time:null, ld=rows[rows.length-1]?rows[rows.length-1].time:null;
+  var days=fd&&ld?Math.round((ld-fd)/86400000):0;
+  var sd=Object.keys(dailyEq).sort();
+  var es=sd.map(function(dk){return{dk:dk,eq:dailyEq[dk]};});
+  var mEq={};es.forEach(function(e){mEq[e.dk.slice(0,7)]=e.eq;});
+  return{dep:dep,depGross:depGross,depFeeAmt:depFee,equity:equity,roi:roi,runP:runP,runF:runF,days:days,firstDate:fd,lastDate:ld,me:me,posM:posM,best:best,es:es,mEq:mEq};
+}
+
+function renderDetalle(stats, nombre){
+  var fmt=function(n){return(isFinite(n)?n:0).toLocaleString('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2});};
+  var fmtPct=function(n){return(isFinite(n)?n:0).toFixed(2)+'%';};
+  var pad2=function(x){return String(x).padStart(2,'0');};
+  var MN=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var mLabel=function(k){var p=k.split('-');return MN[+p[1]-1]+' '+p[0];};
+
+  // Header
+  if(stats.firstDate&&stats.lastDate){
+    $('detPeriodo').textContent = stats.firstDate.getFullYear()+'-'+pad2(stats.firstDate.getMonth()+1)+'-'+pad2(stats.firstDate.getDate())+
+      '  →  '+stats.lastDate.getFullYear()+'-'+pad2(stats.lastDate.getMonth()+1)+'-'+pad2(stats.lastDate.getDate());
+  }
+
+  // ROI
+  var sign=stats.roi>=0?'+':'';
+  $('detROI').textContent=sign+fmtPct(stats.roi);
+  $('detROI').style.color=stats.roi>=0?'var(--good)':'var(--bad)';
+  $('detSub').textContent=stats.days+' días · Rendimiento neto';
+  $('detEquity').textContent=fmt(stats.equity);
+
+  // Deposit breakdown
+  if(stats.depFeeAmt>0){
+    $('detDep').innerHTML='Depósito: '+fmt(stats.depGross)+' · Fee: <span style="color:var(--bad);">-'+fmt(stats.depFeeAmt)+'</span> · <span style="color:var(--accent);">Capital: '+fmt(stats.dep)+'</span>';
+  } else {
+    $('detDep').textContent='Depósito inicial: '+fmt(stats.depGross);
+  }
+
+  // KPIs
+  var netProfit=stats.runP+stats.runF;
+  $('detProfit').textContent=(netProfit>=0?'+':'')+fmt(netProfit);
+  $('detProfit').style.color=netProfit>=0?'var(--good)':'var(--bad)';
+  $('detDias').textContent=stats.days;
+  $('detBest').textContent=stats.best[0]?'+'+fmt(stats.best[1]):'—';
+  $('detPosM').textContent=stats.posM+' / '+stats.me.length;
+
+  // Draw equity chart
+  if(stats.es.length>1) drawDetChart(stats);
+
+  // Table
+  var tbody=$('detTableBody'); tbody.innerHTML='';
+  stats.me.forEach(function(entry){
+    var mk=entry[0],pnl=entry[1];
+    var eq=stats.mEq[mk]||stats.dep, prev=eq-pnl, pct=prev>0?(pnl/Math.abs(prev)*100):0;
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;">'+mLabel(mk)+'</td>'+
+      '<td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono);font-size:12px;color:'+(pnl>=0?'var(--good)':'var(--bad)')+';">'+(pnl>=0?'+':'')+fmt(pnl)+'</td>'+
+      '<td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono);font-size:12px;color:'+(pct>=0?'var(--good)':'var(--bad)')+';">'+(pct>=0?'+':'')+fmtPct(pct)+'</td>'+
+      '<td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono);font-size:12px;">'+fmt(eq)+'</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function drawDetChart(stats){
+  var canvas=$('detChart');
+  var dpr=window.devicePixelRatio||1;
+  var rect=canvas.getBoundingClientRect();
+  var W=Math.max(300,rect.width||700), H=160;
+  canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr);
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  var ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  var labels=stats.es.map(function(s){return s.dk;});
+  var equity=stats.es.map(function(s){return s.eq;});
+  var dep=stats.dep;
+  var pad={l:60,r:10,t:10,b:28};
+  var iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
+  var ext=equity.concat([dep]);
+  var minV=Math.min.apply(null,ext), maxV=Math.max.apply(null,ext);
+  var mg=(maxV-minV)*0.08||5; minV-=mg; maxV+=mg;
+  var span=maxV-minV, n=labels.length;
+  if(!span) return;
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.lineWidth=1;
+  for(var i=0;i<=4;i++){var y=pad.t+ih*(i/4);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+iw,y);ctx.stroke();}
+  ctx.fillStyle='#6b809a'; ctx.font='10px JetBrains Mono,monospace'; ctx.textAlign='right';
+  for(var i=0;i<=4;i++){var v=maxV-span*(i/4),y=pad.t+ih*(i/4);ctx.fillText(Math.abs(v)>=10000?'$'+(v/1000).toFixed(1)+'k':'$'+v.toFixed(0),pad.l-4,y+3);}
+  // Deposit line
+  var depY=pad.t+ih*(1-(dep-minV)/span);
+  ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l,depY); ctx.lineTo(pad.l+iw,depY); ctx.stroke(); ctx.setLineDash([]);
+  // Area
+  var lastVal=equity[n-1], isPos=lastVal>=dep;
+  ctx.beginPath();
+  for(var i=0;i<n;i++){var x=pad.l+iw*(i/Math.max(1,n-1)),y=pad.t+ih*(1-(equity[i]-minV)/span);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.lineTo(pad.l+iw,depY); ctx.lineTo(pad.l,depY); ctx.closePath();
+  var grd=ctx.createLinearGradient(0,pad.t,0,pad.t+ih);
+  if(isPos){grd.addColorStop(0,'rgba(34,214,138,.2)');grd.addColorStop(1,'rgba(34,214,138,.02)');}
+  else{grd.addColorStop(0,'rgba(255,79,106,.15)');grd.addColorStop(1,'rgba(255,79,106,.02)');}
+  ctx.fillStyle=grd; ctx.fill();
+  // Line
+  ctx.lineWidth=2; ctx.strokeStyle=isPos?'#22d68a':'#ff4f6a'; ctx.lineJoin='round';
+  ctx.beginPath();
+  for(var i=0;i<n;i++){var x=pad.l+iw*(i/Math.max(1,n-1)),y=pad.t+ih*(1-(equity[i]-minV)/span);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.stroke();
+  // End dot
+  var ex=pad.l+iw, ey=pad.t+ih*(1-(lastVal-minV)/span);
+  ctx.fillStyle=isPos?'#22d68a':'#ff4f6a'; ctx.beginPath(); ctx.arc(ex,ey,3.5,0,Math.PI*2); ctx.fill();
+}
+
 </script>
+
+<!-- MODAL DETALLE CLIENTE -->
+<div class="modal-overlay" id="modalDetalle" style="display:none;">
+  <div class="modal" style="max-width:900px;width:95%;max-height:90vh;overflow-y:auto;padding:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:4px;">Estado de cuenta</div>
+        <h3 id="detNombre" style="font-size:20px;font-weight:800;margin:0;">—</h3>
+        <div id="detPeriodo" style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:3px;">—</div>
+      </div>
+      <button onclick="closeDetalle()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--muted);width:32px;height:32px;border-radius:8px;font-size:16px;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>
+
+    <!-- ROI Hero -->
+    <div style="background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:16px;padding:22px 24px;margin-bottom:12px;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;">
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Rendimiento Total</div>
+        <div id="detROI" style="font-size:40px;font-weight:800;font-family:var(--mono);letter-spacing:-2px;line-height:1;">—</div>
+        <div id="detSub" style="font-size:11px;color:var(--muted);margin-top:8px;">—</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px;">Valor de la cuenta</div>
+        <div id="detEquity" style="font-size:22px;font-weight:800;font-family:var(--mono);">—</div>
+        <div id="detDep" style="font-size:11px;color:var(--muted);margin-top:4px;font-family:var(--mono);">—</div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">
+      <div style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:12px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Profit neto</div>
+        <div id="detProfit" style="font-size:16px;font-weight:700;font-family:var(--mono);">—</div>
+      </div>
+      <div style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:12px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Días activo</div>
+        <div id="detDias" style="font-size:16px;font-weight:700;font-family:var(--mono);color:var(--accent);">—</div>
+      </div>
+      <div style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:12px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Mejor mes</div>
+        <div id="detBest" style="font-size:16px;font-weight:700;font-family:var(--mono);color:var(--good);">—</div>
+      </div>
+      <div style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:12px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Meses positivos</div>
+        <div id="detPosM" style="font-size:16px;font-weight:700;font-family:var(--mono);">—</div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div style="background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:10px;">Evolución del Capital</div>
+      <canvas id="detChart" style="display:block;width:100%;height:160px;"></canvas>
+    </div>
+
+    <!-- Table -->
+    <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:8px;">Resumen por período</div>
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:10px;max-height:240px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr>
+          <th style="padding:8px 12px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);">Mes</th>
+          <th style="padding:8px 12px;text-align:right;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);">P&L neto</th>
+          <th style="padding:8px 12px;text-align:right;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);">Retorno %</th>
+          <th style="padding:8px 12px;text-align:right;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);">Equity final</th>
+        </tr></thead>
+        <tbody id="detTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
