@@ -1141,7 +1141,12 @@ async function subirReporte(){
   $('uploadFill').style.width='20%';
 
   try {
-    const text = await file.text();
+    var text = await new Promise(function(res,rej){
+      var r=new FileReader();
+      r.onload=function(ev){res(ev.target.result);};
+      r.onerror=function(){rej(new Error('Error leyendo archivo'));};
+      r.readAsText(file);
+    });
     $('uploadFill').style.width='40%';
 
     // ── VALIDACIÓN: verificar que el CSV pertenece al cliente seleccionado ──
@@ -1326,49 +1331,58 @@ function handleDrop(e){
   handleBulkFiles(e.dataTransfer.files);
 }
 
-async function handleBulkFiles(fileList){
+function handleBulkFiles(fileList){
   if(!fileList||!fileList.length) return;
   bulkFiles=[];
   $('bulkList').innerHTML='<div style="color:var(--muted);font-size:12px;">Analizando...</div>';
   $('bulkPreview').style.display='block';
   var now=new Date();
   var curMes=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  var files=Array.from(fileList);
+  var loaded=0;
 
-  if(bulkMode==='single'){
-    // ── CONSOLIDATED CSV: split by InvestorName ──
-    var file=fileList[0];
-    try{
-      var text=await file.text();
-      var split=splitConsolidatedCSV(text);
-      split.forEach(function(inv){
-        var match=findClientByInvestor(inv.investorName);
-        bulkFiles.push({
-          file:file, text:inv.csvText,
-          investor:inv.investorName,
-          clienteId:match?match.id:null,
-          clienteName:match?match.nombre:null,
-          mes:curMes, status:'pending',
-          rowCount:inv.rowCount
-        });
-      });
-    }catch(ex){
-      bulkFiles.push({file:file,text:'',investor:'Error leyendo',clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
-    }
-  } else {
-    // ── MULTIPLE CSVs: one per client ──
-    for(var i=0;i<fileList.length;i++){
-      var f=fileList[i];
-      try{
-        var t=await f.text();
-        var inv=extractInvestorFromCSV(t);
-        var m=findClientByInvestor(inv);
-        bulkFiles.push({file:f,text:t,investor:inv||'(desconocido)',clienteId:m?m.id:null,clienteName:m?m.nombre:null,mes:curMes,status:'pending',rowCount:0});
-      }catch(ex){
-        bulkFiles.push({file:f,text:'',investor:'Error',clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
-      }
-    }
+  function readFile(file, onDone){
+    var reader=new FileReader();
+    reader.onload=function(ev){ onDone(null, ev.target.result); };
+    reader.onerror=function(){ onDone(new Error('Error leyendo'), null); };
+    reader.readAsText(file);
   }
-  renderBulkList();
+
+  function processNext(idx){
+    if(idx>=files.length){ renderBulkList(); return; }
+    var file=files[idx];
+    readFile(file, function(err, text){
+      if(err){ 
+        bulkFiles.push({file:file,text:'',investor:'Error',clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
+        processNext(idx+1); return;
+      }
+      if(bulkMode==='single'){
+        // Consolidated: split by investor
+        try{
+          var split=splitConsolidatedCSV(text);
+          split.forEach(function(inv){
+            var match=findClientByInvestor(inv.investorName);
+            bulkFiles.push({file:file,text:inv.csvText,investor:inv.investorName,
+              clienteId:match?match.id:null,clienteName:match?match.nombre:null,
+              mes:curMes,status:'pending',rowCount:inv.rowCount});
+          });
+        }catch(ex){
+          bulkFiles.push({file:file,text:'',investor:'Error leyendo',clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
+        }
+        renderBulkList();
+      } else {
+        // Multi: one file per client
+        var inv=extractInvestorFromCSV(text);
+        var m=findClientByInvestor(inv);
+        bulkFiles.push({file:file,text:text,investor:inv||'(desconocido)',
+          clienteId:m?m.id:null,clienteName:m?m.nombre:null,
+          mes:curMes,status:'pending',rowCount:0});
+        processNext(idx+1);
+      }
+    });
+    if(bulkMode==='single') return; // processNext called inside
+  }
+  processNext(0);
 }
 
 // Split a consolidated CSV into per-investor CSVs
@@ -1653,19 +1667,27 @@ function mcHandleDrop(e){
   mcLoadFile(e.dataTransfer.files);
 }
 
-async function mcLoadFile(fileList){
+function mcLoadFile(fileList){
   if(!fileList||!fileList.length) return;
   var file=fileList[0];
+  if(!file) return;
   $('mcFileStatus').textContent='⏳ Analizando...';
-  try{
-    var text=await file.text();
-    lastConsolidatedCSV=text;
-    mcProcessCSV(text);
-    $('mcFileStatus').textContent='✅ '+file.name+' cargado correctamente';
-    $('mcFileInput').value='';
-  }catch(e){
-    $('mcFileStatus').textContent='❌ Error: '+e.message;
-  }
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      var text=ev.target.result;
+      lastConsolidatedCSV=text;
+      mcProcessCSV(text);
+      $('mcFileStatus').textContent='✅ '+file.name+' cargado correctamente';
+      $('mcFileInput').value='';
+    }catch(err){
+      $('mcFileStatus').textContent='❌ Error: '+err.message;
+    }
+  };
+  reader.onerror=function(){
+    $('mcFileStatus').textContent='❌ No se pudo leer el archivo';
+  };
+  reader.readAsText(file);
 }
 
 function mcProcessCSV(text){
