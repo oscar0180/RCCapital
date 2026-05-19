@@ -1399,43 +1399,71 @@ function handleBulkFiles(fileList){
   });
 }
 
+// Manager name as it appears in the CSV - used to auto-feed Mi Cuenta
+var MANAGER_CSV_NAME = 'OSCAR ANTONIO ROJAS CORRO';
+
 function processAllLoaded(results, curMes){
   bulkFiles = [];
+  var managerRows = []; // collect manager's own CSV rows
+
   results.forEach(function(r){
-    if(!r.text){
-      bulkFiles.push({file:r.file,text:'',investor:'Error leyendo',clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
-      return;
-    }
+    if(!r.text) return; // skip errors silently
     if(bulkMode==='single'){
-      // Split consolidated CSV by InvestorName
       try{
         var split = splitConsolidatedCSV(r.text);
-        if(!split.length){
-          bulkFiles.push({file:r.file,text:r.text,investor:'(sin inversores detectados)',clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
-        } else {
-          split.forEach(function(inv){
-            var match = findClientByInvestor(inv.investorName);
-            bulkFiles.push({
-              file:r.file, text:inv.csvText,
-              investor:inv.investorName,
-              clienteId:match?match.id:null,
-              clienteName:match?match.nombre:null,
-              mes:curMes, status:'pending', rowCount:inv.rowCount
-            });
+        split.forEach(function(inv){
+          var normName = (inv.investorName||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+          var normMgr  = MANAGER_CSV_NAME.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+
+          // Check if this is the manager's own account
+          if(normName === normMgr || normName.indexOf(normMgr) >= 0 || normMgr.indexOf(normName) >= 0){
+            managerRows.push(inv.csvText);
+            return; // don't add to client list
+          }
+
+          var match = findClientByInvestor(inv.investorName);
+          if(!match) return; // skip unrecognized investors silently
+
+          bulkFiles.push({
+            file:r.file, text:inv.csvText,
+            investor:inv.investorName,
+            clienteId:match.id,
+            clienteName:match.nombre,
+            mes:curMes, status:'pending', rowCount:inv.rowCount
           });
+        });
+
+        // Feed manager data to Mi Cuenta
+        if(managerRows.length > 0){
+          // Reconstruct full CSV for manager
+          var header = r.text.split(/
+?
+/)[0];
+          var mgr_text = header + '
+' + managerRows.map(function(t){
+            return t.split(/
+?
+/).slice(1).join('
+');
+          }).join('
+');
+          lastConsolidatedCSV = r.text; // use full file for Mi Cuenta (includes all fees)
+          mcProcessCSV(r.text);
+          // Update Mi Cuenta nav indicator
+          var mcNav = document.querySelector('[data-page="micuenta"] .nav-label');
+          if(mcNav) mcNav.innerHTML = ' Mi Cuenta <span style="color:var(--good);font-size:10px;">●</span>';
         }
-      }catch(ex){
-        bulkFiles.push({file:r.file,text:'',investor:'Error procesando: '+ex.message,clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
-      }
+
+      }catch(ex){ /* skip silently */ }
     } else {
-      // Multi: one file per client
       var inv = extractInvestorFromCSV(r.text);
       var match = findClientByInvestor(inv);
+      if(!match) return; // skip unrecognized silently
       bulkFiles.push({
         file:r.file, text:r.text,
         investor:inv||'(desconocido)',
-        clienteId:match?match.id:null,
-        clienteName:match?match.nombre:null,
+        clienteId:match.id,
+        clienteName:match.nombre,
         mes:curMes, status:'pending', rowCount:0
       });
     }
@@ -1496,8 +1524,7 @@ function renderBulkList(){
     list.appendChild(row);
   });
   $('bulkStatus').innerHTML=
-    '<span style="color:var(--good);">'+ready+' listos para subir</span>'+
-    (noMatch>0?' &nbsp;·&nbsp; <span style="color:var(--warn);">'+noMatch+' sin asignar (asígnalos manualmente arriba)</span>':'');
+    '<span style="color:var(--good);">'+ready+' clientes listos para actualizar</span>';
 }
 
 async function uploadAllBulk(){
@@ -1680,9 +1707,9 @@ function autoFeedMiCuenta(){
   if(fullText){
     lastConsolidatedCSV = fullText;
     mcProcessCSV(fullText);
-    // Show a subtle indicator on Mi Cuenta nav
     var mcNav = document.querySelector('[data-page="micuenta"] .nav-label');
     if(mcNav) mcNav.innerHTML = ' Mi Cuenta <span style="color:var(--good);font-size:10px;">●</span>';
+    toast('✅ Reportes actualizados · 💰 Mi Cuenta actualizada');
   }
 }
 
@@ -1721,19 +1748,14 @@ function mcProcessCSV(text){
   var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
   if(lines.length<2) return;
   var h=smartSplitA(lines[0],sep).map(function(x){return x.toLowerCase().replace(/\s+/g,'');});
-  var iR=h.indexOf('reason')||h.indexOf('tipo')||h.indexOf('type');
+  var iR=-1; ['reason','tipo','type'].forEach(function(n){if(iR<0)iR=h.indexOf(n);});
   var iA=['amount','monto','importe'].reduce(function(f,n){return f>=0?f:h.indexOf(n);},-1);
   var iT=['time','fecha','date','datetime'].reduce(function(f,n){return f>=0?f:h.indexOf(n);},-1);
-  var iMgr=['managerid','manager_id'].reduce(function(f,n){return f>=0?f:h.indexOf(n);},-1);
-  var iMgrName=['managername','manager_name','manager'].reduce(function(f,n){return f>=0?f:h.indexOf(n);},-1);
-
-  // Find reason column
-  iR=-1;
-  ['reason','tipo','type'].forEach(function(n){if(iR<0)iR=h.indexOf(n);});
-
-  // Totals
+  var iInv=['investorname','investor','inversor','name','usuario'].reduce(function(f,n){return f>=0?f:h.indexOf(n);},-1);
+  function normStr(s){ return (s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
+  var mgrNorm=normStr(MANAGER_CSV_NAME);
   var totalPerf=0,totalMgmt=0,totalDep=0,totalWith=0;
-  var monthly={}; // {YYYY-MM: {perf,mgmt,dep,with}}
+  var monthly={};
 
   for(var i=1;i<lines.length;i++){
     var cols=smartSplitA(lines[i],sep);
@@ -1752,7 +1774,10 @@ function mcProcessCSV(text){
     } else if(reason==='depositfee'||reason==='deposit fee'){
       var v=Math.abs(amount); totalDep+=v; monthly[mk].dep+=v;
     } else if(reason==='withdrawal'||reason==='retiro'){
-      var v=Math.abs(amount); totalWith+=v; monthly[mk].with+=v;
+      // Only count withdrawals that belong to the manager
+      var rowInv=iInv>=0?normStr(cols[iInv]):'';
+      var isMgr=(rowInv===mgrNorm)||(rowInv.length>3&&mgrNorm.indexOf(rowInv)>=0)||(mgrNorm.length>3&&rowInv.indexOf(mgrNorm)>=0);
+      if(isMgr){ var v=Math.abs(amount); totalWith+=v; monthly[mk].with+=v; }
     }
   }
 
