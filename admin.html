@@ -672,9 +672,9 @@ async function loadAll(){
   await loadClientes();
   await loadReportes();
   updateDashboard();
-  // Restore Mi Cuenta from cache
+  // Restore Mi Cuenta from localStorage
   if(lastConsolidatedCSV){
-    mcProcessCSV(lastConsolidatedCSV);
+    setTimeout(function(){ mcProcessCSV(lastConsolidatedCSV); }, 100);
   }
 }
 
@@ -1669,6 +1669,11 @@ function toggleSidebar(){
 // ── MI CUENTA (GESTOR) ────────────────────────────────────────────
 var mcData = null;
 var lastConsolidatedCSV = null; // cache of the last full CSV loaded
+// Restore Mi Cuenta CSV from localStorage immediately on load
+try{
+  var _saved = localStorage.getItem('rcMiCuentaCSV');
+  if(_saved && _saved.length > 100) lastConsolidatedCSV = _saved;
+}catch(e){}
 
 // Called automatically after bulk upload
 function autoFeedMiCuenta(){
