@@ -1334,88 +1334,74 @@ function handleDrop(e){
 function handleBulkFiles(fileList){
   if(!fileList||!fileList.length) return;
   bulkFiles=[];
-  $('bulkList').innerHTML='<div style="color:var(--muted);font-size:12px;">Analizando...</div>';
+  $('bulkList').innerHTML='<div style="color:var(--muted);font-size:12px;">⏳ Analizando...</div>';
   $('bulkPreview').style.display='block';
   var now=new Date();
   var curMes=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  var files=Array.from(fileList);
-  var loaded=0;
 
-  function readFile(file, onDone){
-    var reader=new FileReader();
-    reader.onload=function(ev){ onDone(null, ev.target.result); };
-    reader.onerror=function(){ onDone(new Error('Error leyendo'), null); };
+  // Read first file (consolidated mode) or all files (multi mode)
+  var filesToRead = bulkMode==='single' ? [fileList[0]] : Array.from(fileList);
+  var results = []; // {text, file}
+  var pending = filesToRead.length;
+
+  filesToRead.forEach(function(file){
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      results.push({file:file, text:ev.target.result});
+      pending--;
+      if(pending===0) processAllLoaded(results, curMes);
+    };
+    reader.onerror = function(){
+      results.push({file:file, text:null});
+      pending--;
+      if(pending===0) processAllLoaded(results, curMes);
+    };
     reader.readAsText(file);
-  }
-
-  function processNext(idx){
-    if(idx>=files.length){ renderBulkList(); return; }
-    var file=files[idx];
-    readFile(file, function(err, text){
-      if(err){ 
-        bulkFiles.push({file:file,text:'',investor:'Error',clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
-        processNext(idx+1); return;
-      }
-      if(bulkMode==='single'){
-        // Consolidated: split by investor
-        try{
-          var split=splitConsolidatedCSV(text);
-          split.forEach(function(inv){
-            var match=findClientByInvestor(inv.investorName);
-            bulkFiles.push({file:file,text:inv.csvText,investor:inv.investorName,
-              clienteId:match?match.id:null,clienteName:match?match.nombre:null,
-              mes:curMes,status:'pending',rowCount:inv.rowCount});
-          });
-        }catch(ex){
-          bulkFiles.push({file:file,text:'',investor:'Error leyendo',clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
-        }
-        renderBulkList();
-      } else {
-        // Multi: one file per client
-        var inv=extractInvestorFromCSV(text);
-        var m=findClientByInvestor(inv);
-        bulkFiles.push({file:file,text:text,investor:inv||'(desconocido)',
-          clienteId:m?m.id:null,clienteName:m?m.nombre:null,
-          mes:curMes,status:'pending',rowCount:0});
-        processNext(idx+1);
-      }
-    });
-    if(bulkMode==='single') return; // processNext called inside
-  }
-  processNext(0);
+  });
 }
 
-// Split a consolidated CSV into per-investor CSVs
-function splitConsolidatedCSV(text){
-  var sep=detectSepA(text);
-  var lines=text.split(/
-?\n/).filter(function(l){return l.trim();});
-  if(lines.length<2) return [];
-  var header=lines[0];
-  var h=smartSplitA(header,sep).map(function(x){return x.toLowerCase().replace(/\s+/g,'');});
-  var INV_COLS=['investorname','investor','inversor','user','usuario','name','cliente'];
-  var iI=-1;
-  for(var ci=0;ci<INV_COLS.length;ci++){var ix=h.indexOf(INV_COLS[ci]);if(ix>=0){iI=ix;break;}}
-  if(iI<0) return [{investorName:'(todos)',csvText:text,rowCount:lines.length-1}];
-
-  // Group rows by investor
-  var groups={};
-  for(var i=1;i<lines.length;i++){
-    var cols=smartSplitA(lines[i],sep);
-    if(cols.length<3) continue;
-    var name=(cols[iI]||'').trim().replace(/^"|"$/g,'');
-    if(!name) continue;
-    if(!groups[name]) groups[name]=[];
-    groups[name].push(lines[i]);
-  }
-
-  return Object.keys(groups).map(function(name){
-    return{
-      investorName:name,
-      csvText:header+'\n'+groups[name].join('\n'),
-      rowCount:groups[name].length
-    };
+function processAllLoaded(results, curMes){
+  bulkFiles = [];
+  results.forEach(function(r){
+    if(!r.text){
+      bulkFiles.push({file:r.file,text:'',investor:'Error leyendo',clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
+      return;
+    }
+    if(bulkMode==='single'){
+      // Split consolidated CSV by InvestorName
+      try{
+        var split = splitConsolidatedCSV(r.text);
+        if(!split.length){
+          bulkFiles.push({file:r.file,text:r.text,investor:'(sin inversores detectados)',clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
+        } else {
+          split.forEach(function(inv){
+            var match = findClientByInvestor(inv.investorName);
+            bulkFiles.push({
+              file:r.file, text:inv.csvText,
+              investor:inv.investorName,
+              clienteId:match?match.id:null,
+              clienteName:match?match.nombre:null,
+              mes:curMes, status:'pending', rowCount:inv.rowCount
+            });
+          });
+        }
+      }catch(ex){
+        bulkFiles.push({file:r.file,text:'',investor:'Error procesando: '+ex.message,clienteId:null,clienteName:null,mes:curMes,status:'error',rowCount:0});
+      }
+    } else {
+      // Multi: one file per client
+      var inv = extractInvestorFromCSV(r.text);
+      var match = findClientByInvestor(inv);
+      bulkFiles.push({
+        file:r.file, text:r.text,
+        investor:inv||'(desconocido)',
+        clienteId:match?match.id:null,
+        clienteName:match?match.nombre:null,
+        mes:curMes, status:'pending', rowCount:0
+      });
+    }
   });
+  renderBulkList();
 }
 
 function findClientByInvestor(investorName){
