@@ -140,7 +140,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .rc-btn.active{background:var(--text);border-color:var(--text);color:#fff;}
 
 /* CHART */
-.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.chart-box{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 16px 8px;}
 canvas{display:block;width:100% !important;}
 #chartEquity{height:240px;}
 #chartMonthly{height:150px;}
@@ -429,11 +429,11 @@ function renderReporte(rep){
   $('heroEq').textContent=fmtUSD(stats.equity);
   if(stats.depFeeAmt>0){
     $('heroDep').innerHTML=
-      'Depósito inicial: <span style="color:var(--text);font-weight:600;">'+fmtUSD(stats.depGross)+'</span><br>'+
-      'Activation fee: <span style="color:var(--bad);">-'+fmtUSD(stats.depFeeAmt)+'</span><br>'+
-      '<span style="color:var(--accent);font-weight:700;">Capital a gestionar: '+fmtUSD(stats.dep)+'</span>';
+      'Depósito inicial: <span style="color:rgba(255,255,255,.7);">'+fmtUSD(stats.depGross)+'</span><br>'+
+      'Activation fee: <span style="color:#ff8070;">-'+fmtUSD(stats.depFeeAmt)+'</span><br>'+
+      '<span style="color:#4dde94;font-weight:500;">Capital: '+fmtUSD(stats.dep)+'</span>';
   } else {
-    $('heroDep').textContent='Depósito inicial: '+fmtUSD(stats.depGross);
+    $('heroDep').innerHTML='Depósito inicial: <span style="color:rgba(255,255,255,.7);">'+fmtUSD(stats.depGross)+'</span>';
   }
   const netProfit=stats.runP+stats.runF;
   $('kpiProfit').textContent=(netProfit>=0?'+':'')+fmtUSD(netProfit);
@@ -458,17 +458,24 @@ function getFiltered(){const{labels,equity,deposit}=CC;if(activeRange==='ALL')re
 function drawEquityChart(){
   const{labels,equity,deposit}=getFiltered();const canvas=$('chartEquity');
   const{ctx,W,H}=hiDPI(canvas,260);ctx.clearRect(0,0,W,H);if(!labels.length)return;
-  const pad={l:66,r:14,t:18,b:34},iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
+  // White background
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
+  const pad={l:68,r:14,t:18,b:36},iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
   const ext=[...equity,deposit];let minV=Math.min(...ext),maxV=Math.max(...ext);
   const mg=(maxV-minV)*0.08||5;minV-=mg;maxV+=mg;const span=maxV-minV,n=labels.length;
-  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  // Grid lines
+  ctx.strokeStyle='#e8e8e4';ctx.lineWidth=1;
   for(let i=0;i<=5;i++){const y=pad.t+ih*(i/5);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+iw,y);ctx.stroke();}
-  ctx.fillStyle='#6b809a';ctx.font='11px JetBrains Mono,monospace';ctx.textAlign='right';
+  // Vertical grid
+  const step=Math.max(1,Math.ceil(n/6));
+  for(let i=0;i<n;i+=step){const x=pad.l+iw*(i/Math.max(1,n-1));ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+ih);ctx.stroke();}
+  // Y axis labels
+  ctx.fillStyle='#8a8a82';ctx.font='11px DM Mono,monospace';ctx.textAlign='right';
   for(let i=0;i<=5;i++){const v=maxV-span*(i/5),y=pad.t+ih*(i/5);ctx.fillText(Math.abs(v)>=10000?'$'+(v/1000).toFixed(1)+'k':'$'+v.toFixed(0),pad.l-8,y+4);}
-  const step=Math.max(1,Math.ceil(n/6));ctx.fillStyle='#6b809a';ctx.textAlign='center';
+  ctx.fillStyle='#8a8a82';ctx.textAlign='center';
   for(let i=0;i<n;i+=step){const x=pad.l+iw*(i/Math.max(1,n-1));ctx.fillText(labels[i].slice(5),x,pad.t+ih+22);}
   const depY=pad.t+ih*(1-(deposit-minV)/span);
-  ctx.strokeStyle='rgba(255,255,255,.18)';ctx.setLineDash([5,6]);ctx.lineWidth=1.2;
+  ctx.strokeStyle='rgba(0,0,0,.2)';ctx.setLineDash([5,6]);ctx.lineWidth=1.2;
   ctx.beginPath();ctx.moveTo(pad.l,depY);ctx.lineTo(pad.l+iw,depY);ctx.stroke();ctx.setLineDash([]);
   ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='10px JetBrains Mono,monospace';ctx.textAlign='left';ctx.fillText('Depósito',pad.l+6,depY-6);
   const lastVal=equity[n-1],isPos=lastVal>=deposit;
@@ -481,7 +488,7 @@ function drawEquityChart(){
   ctx.beginPath();for(let i=0;i<n;i++){const x=pad.l+iw*(i/Math.max(1,n-1)),y=pad.t+ih*(1-(equity[i]-minV)/span);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.stroke();
   const ex=pad.l+iw,ey=pad.t+ih*(1-(lastVal-minV)/span);
   ctx.fillStyle=isPos?'#22d68a':'#ff4f6a';ctx.beginPath();ctx.arc(ex,ey,4,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='rgba(0,0,0,.6)';ctx.beginPath();ctx.arc(ex,ey,2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ex,ey,2,0,Math.PI*2);ctx.fill();
   canvas._d={labels,equity,deposit,pad,iw,ih,minV,span};
   const open=equity[0],close=equity[n-1],high=Math.max(...equity),chg=close-open,chgPct=open?(chg/Math.abs(open)*100):0;
   $('cstOpen').textContent=fmtUSD(CC.deposit);$('cstClose').textContent=fmtUSD(close);$('cstHigh').textContent=fmtUSD(high);
@@ -493,19 +500,25 @@ function drawEquityChart(){
 function drawMonthlyChart(stats){
   if(!stats.me.length)return;const canvas=$('chartMonthly');
   const{ctx,W,H}=hiDPI(canvas,160);ctx.clearRect(0,0,W,H);
+  // White background
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
   const labels=stats.me.map(([k])=>mLabel(k)),values=stats.me.map(([,v])=>v);
-  const pad={l:62,r:10,t:12,b:48},iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
+  const pad={l:64,r:10,t:12,b:50},iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
   const minV=Math.min(0,...values),maxV=Math.max(0,...values),span=(maxV-minV)||1,zero=pad.t+ih*(1-(0-minV)/span);
-  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  // Grid
+  ctx.strokeStyle='#e8e8e4';ctx.lineWidth=1;
   for(let i=0;i<=4;i++){const y=pad.t+ih*(i/4);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+iw,y);ctx.stroke();}
-  ctx.fillStyle='#6b809a';ctx.font='11px JetBrains Mono,monospace';ctx.textAlign='right';
+  // Zero line
+  ctx.strokeStyle='#d4d4ce';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(pad.l,zero);ctx.lineTo(pad.l+iw,zero);ctx.stroke();
+  ctx.fillStyle='#8a8a82';ctx.font='11px DM Mono,monospace';ctx.textAlign='right';
   for(let i=0;i<=4;i++){const v=maxV-span*(i/4),y=pad.t+ih*(i/4);ctx.fillText(Math.abs(v)>=1000?'$'+(v/1000).toFixed(1)+'k':'$'+v.toFixed(0),pad.l-6,y+4);}
   const n=labels.length,slot=iw/Math.max(1,n),bw=Math.max(6,slot*0.65);
   for(let i=0;i<n;i++){const v=values[i],barH=Math.max(2,Math.abs(ih*(v/span))),x=pad.l+slot*(i+0.5)-bw/2,y=v>=0?zero-barH:zero;
     const grd=ctx.createLinearGradient(0,y,0,y+barH);
-    if(v>=0){grd.addColorStop(0,'rgba(34,214,138,.85)');grd.addColorStop(1,'rgba(34,214,138,.25)');}else{grd.addColorStop(0,'rgba(255,79,106,.8)');grd.addColorStop(1,'rgba(255,79,106,.2)');}
+    if(v>=0){grd.addColorStop(0,'rgba(26,122,74,.85)');grd.addColorStop(1,'rgba(26,122,74,.25)');}else{grd.addColorStop(0,'rgba(192,57,43,.75)');grd.addColorStop(1,'rgba(192,57,43,.2)');}
     ctx.fillStyle=grd;if(ctx.roundRect)ctx.roundRect(x,y,bw,barH,3);else ctx.rect(x,y,bw,barH);ctx.fill();}
-  ctx.fillStyle='#6b809a';ctx.font='10px Syne,sans-serif';ctx.textAlign='center';
+  ctx.fillStyle='#8a8a82';ctx.font='10px DM Sans,sans-serif';ctx.textAlign='center';
   for(let i=0;i<n;i++){const x=pad.l+slot*(i+0.5);ctx.save();ctx.translate(x,pad.t+ih+10);ctx.rotate(-Math.PI/5);ctx.fillText(labels[i],0,0);ctx.restore();}
 }
 
